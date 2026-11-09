@@ -1,17 +1,3 @@
-// import { useParams } from "react-router";
-
-// export default function Room() {
-//   const params = useParams();
-
-//   console.log("Room component rendered:", params);
-
-//   return (
-//     <div className="min-h-screen bg-black text-white p-10">
-//       <h1 className="text-3xl">Room Joined!</h1>
-//       <p>Room ID: {params.id}</p>
-//     </div>
-//   );
-// }
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { useSocket } from "~/providers/socketProvider";
@@ -32,6 +18,69 @@ const RTC_CONFIG: RTCConfiguration = {
     // { urls: "turn:your.turn.server:3478", username: "...", credential: "..." },
   ],
 };
+
+// -----------------------------
+// Small inline icons
+// -----------------------------
+const Icon = ({ children }: { children: React.ReactNode }) => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    {children}
+  </svg>
+);
+
+const MicIcon = () => (
+  <Icon>
+    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+    <line x1="12" y1="19" x2="12" y2="23" />
+  </Icon>
+);
+
+const MicOffIcon = () => (
+  <Icon>
+    <line x1="1" y1="1" x2="23" y2="23" />
+    <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
+    <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23" />
+    <line x1="12" y1="19" x2="12" y2="23" />
+  </Icon>
+);
+
+const CamIcon = () => (
+  <Icon>
+    <path d="M23 7l-7 5 7 5V7z" />
+    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+  </Icon>
+);
+
+const CamOffIcon = () => (
+  <Icon>
+    <path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10" />
+    <line x1="1" y1="1" x2="23" y2="23" />
+  </Icon>
+);
+
+const SkipIcon = () => (
+  <Icon>
+    <polygon points="5 4 15 12 5 20 5 4" />
+    <line x1="19" y1="5" x2="19" y2="19" />
+  </Icon>
+);
+
+const StopIcon = () => (
+  <Icon>
+    <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" />
+    <line x1="23" y1="1" x2="1" y2="23" />
+  </Icon>
+);
 
 export default function Room() {
   const { id: roomId } = useParams();
@@ -273,6 +322,8 @@ export default function Room() {
       pc.ontrack = null;
       pc.onicecandidate = null;
       pc.onconnectionstatechange = null;
+      pc.oniceconnectionstatechange = null;
+      pc.onsignalingstatechange = null;
       pc.close();
       if (pcRef.current === pc) pcRef.current = null;
       if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
@@ -336,13 +387,23 @@ export default function Room() {
     "partner-left": "Stranger has disconnected",
   };
 
+  const dotColor: Record<Status, string> = {
+    connecting: "bg-amber-400",
+    connected: "bg-emerald-400",
+    searching: "bg-amber-400",
+    "partner-left": "bg-red-400",
+  };
+
   if (mediaError) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center p-10">
-        <div className="text-center flex flex-col gap-4">
-          <p>{mediaError}</p>
+      <div
+        className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center p-6"
+        style={{ colorScheme: "dark" }}
+      >
+        <div className="max-w-sm text-center flex flex-col gap-4 rounded-2xl border border-white/10 bg-zinc-900 p-7">
+          <p className="text-sm text-zinc-300">{mediaError}</p>
           <button
-            className="bg-white text-black p-2 cursor-pointer"
+            className="cursor-pointer rounded-lg bg-indigo-500 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400"
             onClick={handleStop}
           >
             Back
@@ -352,78 +413,127 @@ export default function Room() {
     );
   }
 
+  const ctrlBase =
+    "flex h-11 w-11 cursor-pointer items-center justify-center rounded-full transition active:scale-95";
+
   return (
-    <div className="h-screen w-screen bg-black text-white flex flex-col md:flex-row">
+    <div
+      className="h-screen w-screen bg-zinc-950 text-zinc-100 flex flex-col md:flex-row gap-3 p-3"
+      style={{ colorScheme: "dark" }}
+    >
       {/* Video area */}
-      <div className="relative flex-1 bg-neutral-900">
+      <div className="relative flex-1 min-h-0 overflow-hidden rounded-2xl border border-white/5 bg-zinc-900">
         <video
           ref={remoteVideoRef}
           autoPlay
           playsInline
-          className="w-full h-full object-cover"
+          className="h-full w-full object-cover"
         />
 
         {status !== "connected" && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-            <p className="text-xl">{statusLabel[status]}</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-zinc-950/80 backdrop-blur-sm">
+            {status !== "partner-left" && (
+              <span className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+            )}
+            <p className="text-base text-zinc-300">{statusLabel[status]}</p>
+            {status === "partner-left" && (
+              <button
+                onClick={handleNext}
+                className="cursor-pointer rounded-lg bg-indigo-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400"
+              >
+                Find someone new
+              </button>
+            )}
           </div>
         )}
 
         {/* Local preview */}
-        <video
-          ref={localVideoRef}
-          autoPlay
-          playsInline
-          muted
-          className="absolute bottom-4 right-4 w-40 md:w-56 aspect-video object-cover rounded border border-white/30 bg-black -scale-x-100"
-        />
+        <div className="absolute right-3 top-3 w-32 md:w-48 overflow-hidden rounded-xl border border-white/15 bg-black shadow-xl">
+          <video
+            ref={localVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="aspect-video w-full -scale-x-100 object-cover"
+          />
+          {!camOn && (
+            <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 text-xs text-zinc-400">
+              Camera off
+            </div>
+          )}
+        </div>
 
         {/* Controls */}
-        <div className="absolute bottom-4 left-4 flex gap-2">
+        <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-zinc-900/80 p-2 shadow-xl backdrop-blur">
           <button
             onClick={toggleMic}
-            className="bg-white/90 text-black px-3 py-2 cursor-pointer"
+            title={micOn ? "Mute" : "Unmute"}
+            className={`${ctrlBase} ${
+              micOn
+                ? "bg-white/10 text-zinc-100 hover:bg-white/20"
+                : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+            }`}
           >
-            {micOn ? "Mute" : "Unmute"}
+            {micOn ? <MicIcon /> : <MicOffIcon />}
           </button>
           <button
             onClick={toggleCam}
-            className="bg-white/90 text-black px-3 py-2 cursor-pointer"
+            title={camOn ? "Turn camera off" : "Turn camera on"}
+            className={`${ctrlBase} ${
+              camOn
+                ? "bg-white/10 text-zinc-100 hover:bg-white/20"
+                : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+            }`}
           >
-            {camOn ? "Camera off" : "Camera on"}
+            {camOn ? <CamIcon /> : <CamOffIcon />}
           </button>
           <button
             onClick={handleNext}
-            className="bg-blue-500 text-white px-3 py-2 cursor-pointer"
+            title="Next stranger"
+            className="flex h-11 cursor-pointer items-center gap-2 rounded-full bg-indigo-500 px-5 text-sm font-semibold text-white transition hover:bg-indigo-400 active:scale-95"
           >
+            <SkipIcon />
             Next
           </button>
           <button
             onClick={handleStop}
-            className="bg-red-500 text-white px-3 py-2 cursor-pointer"
+            title="Stop"
+            className={`${ctrlBase} bg-red-500 text-white hover:bg-red-400`}
           >
-            Stop
+            <StopIcon />
           </button>
         </div>
       </div>
 
       {/* Chat */}
-      <div className="w-full md:w-80 h-64 md:h-full flex flex-col border-l border-white/10">
-        <div className="p-3 text-sm text-white/60 border-b border-white/10">
-          {statusLabel[status]}
+      <div className="flex h-64 w-full flex-col overflow-hidden rounded-2xl border border-white/5 bg-zinc-900 md:h-full md:w-80 lg:w-96">
+        <div className="border-b border-white/5 px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-zinc-200">
+            <span className={`h-2 w-2 rounded-full ${dotColor[status]}`} />
+            {statusLabel[status]}
+          </div>
           {rtcState && (
-            <div className="text-xs text-white/40 mt-1 break-all">{rtcState}</div>
+            <div className="mt-1 break-all text-[11px] text-zinc-600">
+              {rtcState}
+            </div>
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+        <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-3">
+          {messages.length === 0 && (
+            <p className="m-auto text-center text-sm text-zinc-600">
+              {status === "connected"
+                ? "Say hi 👋"
+                : "Chat opens once you're connected"}
+            </p>
+          )}
           {messages.map((m, i) => (
             <div
               key={i}
-              className={`max-w-[85%] px-3 py-1 rounded text-sm break-words ${
+              className={`max-w-[85%] break-words rounded-2xl px-3 py-1.5 text-sm ${
                 m.from === "me"
-                  ? "self-end bg-blue-500"
-                  : "self-start bg-white/10"
+                  ? "self-end rounded-br-sm bg-indigo-500 text-white"
+                  : "self-start rounded-bl-sm bg-zinc-800 text-zinc-100"
               }`}
             >
               {m.text}
@@ -432,9 +542,12 @@ export default function Room() {
           <div ref={chatEndRef} />
         </div>
 
-        <form onSubmit={sendMessage} className="p-3 flex gap-2 border-t border-white/10">
+        <form
+          onSubmit={sendMessage}
+          className="flex gap-2 border-t border-white/5 p-3"
+        >
           <input
-            className="flex-1 bg-white/10 p-2 text-sm outline-none"
+            className="flex-1 rounded-lg border border-white/10 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 disabled:opacity-40"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={status === "connected" ? "Type a message" : "Waiting..."}
@@ -444,7 +557,7 @@ export default function Room() {
           <button
             type="submit"
             disabled={status !== "connected"}
-            className="bg-white text-black px-3 cursor-pointer disabled:opacity-40"
+            className="cursor-pointer rounded-lg bg-indigo-500 px-4 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Send
           </button>
